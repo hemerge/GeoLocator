@@ -1,43 +1,64 @@
 package com.geolocator.service;
 
+import com.geolocator.model.GeoLocationDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 public class GeoLocationService {
 
-    private final WebClient webClient;
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
-    public GeoLocationService(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder
-                .baseUrl("https://nominatim.openstreetmap.org")
-                .defaultHeader("User-Agent", "GeoLocatorApp/1.0")
-                .build();
+    @Value("${geolocator.api.url}")
+    private String apiUrl;
+
+    public GeoLocationService(ObjectMapper objectMapper) {
+        this.httpClient = HttpClient.newHttpClient();
+        this.objectMapper = objectMapper;
     }
 
-    public Mono<String> getAddressFromLatLon(double latitude, double longitude) {
-        return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/reverse")
-                        .queryParam("format", "json")
-                        .queryParam("lat", latitude)
-                        .queryParam("lon", longitude)
-                        .queryParam("addressdetails", 1)
-                        .build())
-                .retrieve()
-                .bodyToMono(String.class)
-                .onErrorResume(e -> Mono.just("Error fetching address: " + e.getMessage()));
+    // Method to get a single address as a DTO
+    public Optional<GeoLocationDTO> getAddressFromLatLon(double latitude, double longitude) {
+        try {
+            String url = String.format("%s/reverse?format=json&lat=%s&lon=%s&addressdetails=1", 
+                    apiUrl, latitude, longitude);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("User-Agent", "GeoLocatorApp/1.0")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                GeoLocationDTO geoLocation = objectMapper.readValue(response.body(), GeoLocationDTO.class);
+                return Optional.of(geoLocation);
+            }
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+        return Optional.empty();
     }
 
-    public Flux<String> getAddressesFromLatLonBulk(List<double[]> coordinatesList) {
-        List<Mono<String>> addressRequests = coordinatesList.stream()
-                .map(coord -> getAddressFromLatLon(coord[0], coord[1]))
-                .collect(Collectors.toList());
-        return Flux.merge(addressRequests);
+    // Method to get multiple addresses as DTOs
+    public List<Optional<GeoLocationDTO>> getAddressesFromLatLonBulk(List<double[]> coordinatesList) {
+        List<Optional<GeoLocationDTO>> result = new ArrayList<>();
+        for (double[] coordinates : coordinatesList) {
+            double latitude = coordinates[0];
+            double longitude = coordinates[1];
+            result.add(getAddressFromLatLon(latitude, longitude));
+        }
+        return result;
     }
 }
