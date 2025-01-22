@@ -1,152 +1,168 @@
-# GeoLocator - Spring Boot Application
 
-GeoLocator is a backend application built using Spring Boot that provides geolocation functionalities. It allows fetching latitude and longitude from a city name and performing reverse geocoding to get a city's address from its geographical coordinates. It supports both single and bulk queries with centralized error handling.
+# GeoLocator API
 
----
+GeoLocator API provides services for geolocation-based queries, allowing users to perform reverse geocoding by latitude and longitude.
 
-## Key Features
-- Fetch latitude and longitude by city name.
-- Reverse geocode (get address from latitude and longitude).
-- Bulk reverse geocode functionality.
-- REST APIs developed using Spring Boot.
-- Reactive programming using WebFlux.
+## Table of Contents
+- [Prerequisites](#prerequisites)
+- [Running the Project](#running-the-project)
+- [API Endpoints](#api-endpoints)
+  - [Get Address from Latitude and Longitude](#get-address-from-latitude-and-longitude)
+  - [Bulk Reverse Geocode](#bulk-reverse-geocode)
+- [Error Responses](#error-responses)
 
----
+## Project Setup
 
-## Project Structure
-
-### **Java (Spring Boot)**
-
-#### **1. `GeoLocationController`**
-- **Purpose**: Handles API requests related to geolocation functionalities.
-- **Endpoints**:
-  - `GET /api/geolocator/reverse-geocode` - Reverse geocodes a single latitude and longitude.
-  - `POST /api/geolocator/bulk-reverse-geocode` - Reverse geocodes multiple latitude-longitude pairs.
-- **Code Snippet**:
-```java
-@RestController
-@RequestMapping("/api/geolocator")
-public class GeoLocationController {
-    // Methods for reverse geocoding and bulk operations
-}
+### Cloning the Repository
+First, clone the repository to your local machine:
+```
+git clone https://github.com/your-username/GeoLocator.git
+cd GeoLocator
 ```
 
+### Prerequisites
+
+Ensure you have the following software installed:
+
+1. **Java 21**
+2. **Maven**
+3. **Git**
+
+You can check if you have the necessary tools installed by running:
+```java -version
+mvn -version
+```
+
+### Running the Project
+
+To run the project locally, use the following steps:
+
+1. **Build the Project:**
+   Compile and package the application using Maven:
+   ```
+   mvn clean install
+   ```
+
+2. **Run the Application:**
+   Start the Spring Boot application:
+   ```
+   mvn spring-boot:run
+   ```
+
+   The application will start running on [http://localhost:8080](http://localhost:8080).
+
+3. **Access the Application:**
+   Once the application is up and running, use the endpoints described below to interact with the service.
+
 ---
 
-#### **2. `GeoLocationService`**
-- **Purpose**: Contains the business logic for interacting with OpenLayers API and processing geolocation data.
-- **Methods**:
-  - `getAddress(double latitude, double longitude)` - Fetches address for given latitude and longitude.
-  - `bulkGetAddresses(List<double[]> coordinates)` - Fetches addresses for multiple coordinates.
+## API Endpoints
 
----
+### 1. **Get Address from Latitude and Longitude**
 
-#### **3. `GlobalExceptionHandler`**
-- **Purpose**: Centralizes error handling for all API exceptions.
-- **Features**:
-  - Handles validation errors.
-  - Returns structured error responses.
-- **Example Response**:
+**Endpoint:**
+```
+GET /api/geolocator/reverse-geocode
+```
+
+**Query Parameters:**
+- `latitude` (required) - Latitude for reverse geocoding.
+- `longitude` (required) - Longitude for reverse geocoding.
+
+**Example Request:**
+```
+GET http://localhost:8080/api/geolocator/reverse-geocode?latitude=37.7749&longitude=-122.4194
+```
+
+**Response:**
+- **200 OK** - Returns a `GeoLocationDTO` with address information.
+
+Example Response:
 ```json
 {
-    "message": "Validation failed",
-    "details": "latitude must be provided"
+    "address": {
+        "road": "Market St",
+        "city": "San Francisco",
+        "country": "United States",
+        "postcode": "94103"
+    }
 }
 ```
 
----
+### 2. **Bulk Reverse Geocode**
 
-## API Documentation
-
-### **1. Reverse Geocode a Single Location**
-- **Endpoint**: `GET /api/geolocator/reverse-geocode`
-- **Query Parameters**:
-  - `latitude` (double): Latitude of the location.
-  - `longitude` (double): Longitude of the location.
-- **Example CURL**:
-```bash
-curl -X GET "http://localhost:8080/api/geolocator/reverse-geocode?latitude=40.7128&longitude=-74.0060"
+**Endpoint:**
 ```
-- **Response**:
-```json
-{
-    "address": "New York, NY, USA"
-}
+POST /api/geolocator/bulk-reverse-geocode
 ```
 
-### **2. Bulk Reverse Geocode**
-- **Endpoint**: `POST /api/geolocator/bulk-reverse-geocode`
-- **Payload**: JSON array of latitude-longitude pairs.
-- **Example CURL**:
-```bash
-curl -X POST "http://localhost:8080/api/geolocator/bulk-reverse-geocode" \
--H "Content-Type: application/json" \
--d '[ [40.7128, -74.0060], [37.7749, -122.4194] ]'
-```
-- **Response**:
+**Request Body:**
 ```json
 [
-    {"latitude": 40.7128, "longitude": -74.0060, "address": "New York, NY, USA"},
-    {"latitude": 37.7749, "longitude": -122.4194, "address": "San Francisco, CA, USA"}
+    [37.7749, -122.4194],
+    [40.7306, -73.9352]
+]
+```
+
+**Response:**
+- **200 OK** - Returns a list of addresses corresponding to the latitude-longitude pairs.
+
+Example Response:
+```json
+[
+    {
+        "address": {
+            "road": "Market St",
+            "city": "San Francisco",
+            "country": "United States",
+            "postcode": "94103"
+        }
+    },
+    {
+        "address": {
+            "road": "Bedford Ave",
+            "city": "Brooklyn",
+            "country": "United States",
+            "postcode": "11211"
+        }
+    }
 ]
 ```
 
 ---
 
-### **Error Responses**
-#### Missing or Invalid Parameters:
-- **Response**:
+## Error Responses
+
+The following error responses are returned by the API:
+
+### 1. **Invalid Latitude and Longitude**
+If the provided latitude or longitude is invalid or outside the acceptable ranges, the service will return a `400 Bad Request` with an error message.
+
+**Example Response:**
 ```json
 {
-    "message": "Validation failed",
-    "details": "latitude must be provided"
+    "error": "Invalid latitude and/or longitude values."
 }
 ```
 
-#### Internal Server Error:
-- **Response**:
+### 2. **Geolocation Data Not Found**
+If the API cannot find geolocation data for the given coordinates, the service will return a `404 Not Found`.
+
+**Example Response:**
 ```json
 {
-    "message": "Internal server error",
-    "details": "Unexpected error occurred"
+    "error": "No geolocation data found for the provided coordinates."
 }
 ```
 
+### 3. **Server Error**
+If there is an internal issue while processing the request, a `500 Internal Server Error` is returned.
+
+**Example Response:**
+```json
+{
+    "error": "An error occurred while fetching geolocation data."
+}
+```
+```
 ---
-
-## Getting Started
-
-### Prerequisites
-- **Java 8 or higher**
-- **Maven**
-
-### Steps to Run the Project
-
-1. Navigate to the backend directory.
-2. Install dependencies:
-   ```bash
-   mvn clean install
-   ```
-3. Run the application:
-   ```bash
-   mvn spring-boot:run
-   ```
-
----
-
-## Technology Stack
-
-- **Backend**: Java 8, Spring Boot (WebFlux), Maven
-- **API Integration**: OpenLayers
-- **Error Handling**: Centralized Exception Handling (Spring ControllerAdvice)
-
----
-
-## Contributing
-Contributions are welcome! Feel free to open an issue or submit a pull request with your improvements or bug fixes.
-
----
-
-## License
-This project is licensed under the MIT License. See the `LICENSE` file for details.
-
